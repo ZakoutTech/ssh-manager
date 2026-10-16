@@ -1,0 +1,115 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    name: Checks
+    uses: ./.github/workflows/ci.yml
+
+  changesets:
+    name: Version PR or tag
+    needs: checks
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      published: ${{ steps.changesets.outputs.published }}
+      version: ${{ steps.changesets.outputs.published == 'true' && fromJSON(steps.changesets.outputs.published-packages)[0].version || '' }}
+      pr-number: ${{ steps.changesets.outputs.pr-number }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      # With pending changesets: open or update the "Version Packages" PR (version bump + CHANGELOG).
+      # Without (that PR was just merged): tag vX.Y.Z and create the GitHub release.
+      - id: changesets
+        uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+        with:
+          # A PAT (or GitHub App token) lets the Version Packages PR trigger CI; GITHUB_TOKEN does not.
+          github-token: ${{ secrets.RELEASE_TOKEN || github.token }}
+          version-script: npm run release:version
+          publish-script: npm run release:tag
+          commit-message: 'chore: version packages'
+          pr-title: 'chore: version packages'
+
+  auto-merge:
+    name: Auto-merge the Version Packages PR
+    # Opt in with the repository variable AUTO_RELEASE=true. Needs RELEASE_TOKEN: a merge made with
+    # GITHUB_TOKEN would not trigger this workflow again, so nothing would be tagged or published.
+    needs: changesets
+    if: needs.changesets.outputs.pr-number && vars.AUTO_RELEASE == 'true'
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 5
+    steps:
+      - name: Merge when checks pass
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ needs.changesets.outputs.pr-number }}
+        run: |
+          [ -n "$GH_TOKEN" ] || { echo "::error::AUTO_RELEASE needs the RELEASE_TOKEN secret"; exit 1; }
+          # --auto waits for required checks; without branch protection it can't queue, so merge now.
+          gh pr merge "$PR" --squash --auto || gh pr merge "$PR" --squash
+
+  publish:
+    name: Publish to marketplaces
+    needs: changesets
+    if: needs.changesets.outputs.published == 'true'
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 15
+    # Holds VSCE_PAT and OVSX_PAT; add required reviewers here to approve each publish.
+    environment: marketplace
+    permissions:
+      contents: write
+    env:
+      TAG: v${{ needs.changesets.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Package
+        id: package
+        run: |
+          npm run package
+          echo "vsix=$(ls *.vsix)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to the VS Code Marketplace
+        run: npx vsce publish --packagePath "${{ steps.package.outputs.vsix }}"
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+
+      - name: Publish to Open VSX
+        run: npx ovsx publish "${{ steps.package.outputs.vsix }}"
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+
+      - name: Attach the .vsix to the GitHub release
+        run: gh release upload "$TAG" "${{ steps.package.outputs.vsix }}" --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}

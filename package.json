@@ -1,0 +1,426 @@
+{
+  "name": "ssh-config-manager",
+  "displayName": "SSH Config Manager",
+  "description": "Visual editor for ~/.ssh/config: hosts in groups, an Add Host dialog, one-click connect, ssh-agent controls and key generation.",
+  "version": "0.0.1",
+  "publisher": "zakout",
+  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ZakoutTech/ssh-config-manager.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ZakoutTech/ssh-config-manager/issues"
+  },
+  "homepage": "https://github.com/ZakoutTech/ssh-config-manager#readme",
+  "icon": "images/icon.png",
+  "engines": {
+    "vscode": "^1.128.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "ssh",
+    "ssh config",
+    "ssh-agent",
+    "ssh-keygen",
+    "remote"
+  ],
+  "extensionKind": [
+    "ui"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "sshConfigManager.editor",
+        "displayName": "SSH Config Manager",
+        "selector": [
+          {
+            "filenamePattern": "**/.ssh/config"
+          },
+          {
+            "filenamePattern": "**/.ssh/config.d/*"
+          },
+          {
+            "filenamePattern": "**/.ssh/*.conf"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "sshConfigManager",
+          "title": "SSH",
+          "icon": "images/activity.svg"
+        }
+      ]
+    },
+    "views": {
+      "sshConfigManager": [
+        {
+          "id": "sshConfigManager.hosts",
+          "name": "Hosts",
+          "contextualTitle": "SSH Config Manager"
+        },
+        {
+          "id": "sshConfigManager.agent",
+          "type": "webview",
+          "name": "SSH Agent",
+          "contextualTitle": "SSH Config Manager"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "sshConfigManager.hosts",
+        "contents": "No SSH config file found.\n[Create SSH Config](command:sshConfigManager.createConfig)",
+        "when": "!sshConfigManager.configExists"
+      },
+      {
+        "view": "sshConfigManager.hosts",
+        "contents": "Your SSH config has no hosts yet.\n[Add Host](command:sshConfigManager.addHost)\n[Open Config Manager](command:sshConfigManager.openEditor)",
+        "when": "sshConfigManager.configExists"
+      }
+    ],
+    "configuration": {
+      "title": "SSH Config Manager",
+      "properties": {
+        "sshConfigManager.configPath": {
+          "type": "string",
+          "default": "",
+          "order": 0,
+          "markdownDescription": "Path of the SSH config file to manage. Empty means `~/.ssh/config`. `~` is expanded."
+        },
+        "sshConfigManager.keys.directory": {
+          "type": "string",
+          "default": "",
+          "order": 1,
+          "markdownDescription": "Folder searched for private keys (IdentityFile suggestions, **Add key…**) and where new keys are generated. Empty means `~/.ssh`."
+        },
+        "sshConfigManager.statusBar.enabled": {
+          "type": "boolean",
+          "default": true,
+          "order": 2,
+          "description": "Show the ssh-agent status (number of loaded keys) in the status bar."
+        },
+        "sshConfigManager.backup.enabled": {
+          "type": "boolean",
+          "default": true,
+          "order": 3,
+          "markdownDescription": "Before the first save of a config file in a session, copy the file on disk to `~/.ssh/backups/`."
+        },
+        "sshConfigManager.backup.keep": {
+          "type": "integer",
+          "default": 10,
+          "minimum": 1,
+          "order": 4,
+          "description": "Number of backups kept per config file; older ones are deleted."
+        },
+        "sshConfigManager.agent.keyLifetime": {
+          "type": "string",
+          "default": "",
+          "order": 5,
+          "markdownDescription": "Lifetime of keys added to the agent (`ssh-add -t`), e.g. `3600`, `30m` or `8h`. Empty keeps them until removed."
+        },
+        "sshConfigManager.agent.useKeychain": {
+          "type": "boolean",
+          "default": true,
+          "order": 6,
+          "markdownDescription": "macOS only: store passphrases in the Keychain when adding keys (`ssh-add --apple-use-keychain`)."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "sshConfigManager.openEditor",
+        "title": "Open SSH Config Manager",
+        "category": "SSH Config Manager",
+        "icon": {
+          "light": "images/editor-light.svg",
+          "dark": "images/editor-dark.svg"
+        }
+      },
+      {
+        "command": "sshConfigManager.openText",
+        "title": "Open as Text",
+        "category": "SSH Config Manager",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "sshConfigManager.createConfig",
+        "title": "Create SSH Config",
+        "category": "SSH Config Manager"
+      },
+      {
+        "command": "sshConfigManager.addHost",
+        "title": "Add Host…",
+        "category": "SSH Config Manager",
+        "icon": "$(add)"
+      },
+      {
+        "command": "sshConfigManager.editHost",
+        "title": "Edit Host",
+        "category": "SSH Config Manager",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "sshConfigManager.revealHost",
+        "title": "Show Host in SSH Config Manager",
+        "category": "SSH Config Manager"
+      },
+      {
+        "command": "sshConfigManager.applyEdit",
+        "title": "Apply Edit (internal)",
+        "category": "SSH Config Manager"
+      },
+      {
+        "command": "sshConfigManager.duplicateHost",
+        "title": "Duplicate Host",
+        "category": "SSH Config Manager"
+      },
+      {
+        "command": "sshConfigManager.deleteHost",
+        "title": "Delete Host",
+        "category": "SSH Config Manager"
+      },
+      {
+        "command": "sshConfigManager.connect",
+        "title": "Connect in Terminal",
+        "category": "SSH Config Manager",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "sshConfigManager.openRemote",
+        "title": "Open in Remote-SSH Window",
+        "category": "SSH Config Manager",
+        "icon": "$(remote-explorer)"
+      },
+      {
+        "command": "sshConfigManager.copyCommand",
+        "title": "Copy SSH Command",
+        "category": "SSH Config Manager"
+      },
+      {
+        "command": "sshConfigManager.refresh",
+        "title": "Refresh",
+        "category": "SSH Config Manager",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "sshConfigManager.agent.show",
+        "title": "Manage SSH Agent",
+        "category": "SSH Config Manager",
+        "icon": "$(key)"
+      },
+      {
+        "command": "sshConfigManager.agent.start",
+        "title": "Start SSH Agent",
+        "category": "SSH Config Manager"
+      },
+      {
+        "command": "sshConfigManager.agent.addKey",
+        "title": "Add Key to SSH Agent…",
+        "category": "SSH Config Manager"
+      },
+      {
+        "command": "sshConfigManager.agent.removeAll",
+        "title": "Remove All Keys from SSH Agent",
+        "category": "SSH Config Manager"
+      },
+      {
+        "command": "sshConfigManager.agent.openTerminal",
+        "title": "Open Terminal with SSH Agent",
+        "category": "SSH Config Manager"
+      },
+      {
+        "command": "sshConfigManager.agent.evalInTerminal",
+        "title": "Run ssh-agent eval in Terminal",
+        "category": "SSH Config Manager"
+      },
+      {
+        "command": "sshConfigManager.generateKey",
+        "title": "Generate SSH Key…",
+        "category": "SSH Config Manager"
+      },
+      {
+        "command": "sshConfigManager.restoreBackup",
+        "title": "Restore Config Backup…",
+        "category": "SSH Config Manager"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "sshConfigManager.openText",
+          "when": "activeCustomEditorId == 'sshConfigManager.editor'"
+        },
+        {
+          "command": "sshConfigManager.editHost",
+          "when": "false"
+        },
+        {
+          "command": "sshConfigManager.revealHost",
+          "when": "false"
+        },
+        {
+          "command": "sshConfigManager.applyEdit",
+          "when": "false"
+        },
+        {
+          "command": "sshConfigManager.duplicateHost",
+          "when": "false"
+        },
+        {
+          "command": "sshConfigManager.deleteHost",
+          "when": "false"
+        },
+        {
+          "command": "sshConfigManager.openRemote",
+          "when": "false"
+        },
+        {
+          "command": "sshConfigManager.copyCommand",
+          "when": "false"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "sshConfigManager.addHost",
+          "when": "view == sshConfigManager.hosts",
+          "group": "navigation@0"
+        },
+        {
+          "command": "sshConfigManager.openEditor",
+          "when": "view == sshConfigManager.hosts",
+          "group": "navigation@1"
+        },
+        {
+          "command": "sshConfigManager.refresh",
+          "when": "view == sshConfigManager.hosts",
+          "group": "navigation@2"
+        },
+        {
+          "command": "sshConfigManager.restoreBackup",
+          "when": "view == sshConfigManager.hosts",
+          "group": "2_backup"
+        },
+        {
+          "command": "sshConfigManager.generateKey",
+          "when": "view == sshConfigManager.agent",
+          "group": "1_keys"
+        },
+        {
+          "command": "sshConfigManager.agent.evalInTerminal",
+          "when": "view == sshConfigManager.agent",
+          "group": "2_terminal"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "sshConfigManager.connect",
+          "when": "view == sshConfigManager.hosts && viewItem == sshConfigManager.host",
+          "group": "inline@1"
+        },
+        {
+          "command": "sshConfigManager.openRemote",
+          "when": "view == sshConfigManager.hosts && viewItem == sshConfigManager.host",
+          "group": "inline@2"
+        },
+        {
+          "command": "sshConfigManager.editHost",
+          "when": "view == sshConfigManager.hosts && viewItem =~ /^sshConfigManager\\.(host|pattern)$/",
+          "group": "inline@3"
+        },
+        {
+          "command": "sshConfigManager.connect",
+          "when": "view == sshConfigManager.hosts && viewItem == sshConfigManager.host",
+          "group": "1_connect@1"
+        },
+        {
+          "command": "sshConfigManager.openRemote",
+          "when": "view == sshConfigManager.hosts && viewItem == sshConfigManager.host",
+          "group": "1_connect@2"
+        },
+        {
+          "command": "sshConfigManager.copyCommand",
+          "when": "view == sshConfigManager.hosts && viewItem == sshConfigManager.host",
+          "group": "1_connect@3"
+        },
+        {
+          "command": "sshConfigManager.editHost",
+          "when": "view == sshConfigManager.hosts && viewItem =~ /^sshConfigManager\\.(host|pattern)$/",
+          "group": "2_edit@1"
+        },
+        {
+          "command": "sshConfigManager.duplicateHost",
+          "when": "view == sshConfigManager.hosts && viewItem =~ /^sshConfigManager\\.(host|pattern)$/",
+          "group": "2_edit@2"
+        },
+        {
+          "command": "sshConfigManager.deleteHost",
+          "when": "view == sshConfigManager.hosts && viewItem =~ /^sshConfigManager\\.(host|pattern)$/",
+          "group": "3_delete"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "sshConfigManager.openText",
+          "when": "activeCustomEditorId == 'sshConfigManager.editor'",
+          "group": "navigation"
+        },
+        {
+          "command": "sshConfigManager.openEditor",
+          "when": "resourcePath =~ /[\\\\/]\\.ssh[\\\\/]/ && activeCustomEditorId != 'sshConfigManager.editor'",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "watch": "tsdown --watch",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "oxlint --deny-warnings",
+    "changeset": "changeset",
+    "release:version": "changeset version && npm install --package-lock-only --ignore-scripts",
+    "release:tag": "changeset publish",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "preview": "node scripts/preview.mjs",
+    "install:cursor": "npm run package && node scripts/install-extension.mjs cursor",
+    "install:code": "npm run package && node scripts/install-extension.mjs code",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "pretest:integration": "npm run build && tsc -p tsconfig.integration.json",
+    "test:integration": "vscode-test",
+    "vscode:prepublish": "tsdown --minify",
+    "package": "vsce package --no-rewrite-relative-links"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^3.0.3",
+    "@tsdown/css": "^0.23.1",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^26.6.5",
+    "@types/vscode": "~1.125.0",
+    "@vitest/coverage-v8": "^5.0.4",
+    "@vscode/test-cli": "^0.0.15",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^4.0.0",
+    "happy-dom": "^21.0.1",
+    "mocha": "^12.0.3",
+    "ovsx": "^1.2.0",
+    "oxfmt": "^0.72.0",
+    "oxlint": "^1.87.0",
+    "tsdown": "^0.23.1",
+    "typescript": "~7.0.2",
+    "vitest": "^5.0.4"
+  }
+}

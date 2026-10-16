@@ -1,0 +1,93 @@
+name: PR Checks
+
+# pull_request_target so the checks can label PRs from forks too. It never checks out or runs PR code.
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  title:
+    name: Conventional PR title
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+    steps:
+      # Squash merges use the PR title as the commit message, which release-please turns into the
+      # version bump and CHANGELOG entry, so the title must be a Conventional Commit.
+      - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          types: |
+            feat
+            fix
+            perf
+            revert
+            docs
+            build
+            ci
+            chore
+            refactor
+            style
+            test
+          requireScope: false
+          subjectPattern: '^(?![A-Z]).+$'
+          subjectPatternError: 'Start the description with a lowercase letter, e.g. "feat: add a file dropdown".'
+
+      - name: Label the PR with its type
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          type=$(printf '%s' "$TITLE" | sed -nE 's/^([a-z]+)(\([^)]*\))?(!)?:.*/\1/p')
+          breaking=$(printf '%s' "$TITLE" | sed -nE 's/^[a-z]+(\([^)]*\))?!:.*/yes/p')
+          [ -n "$type" ] || exit 0
+          gh label create "type: $type" --color ededed --force >/dev/null
+          gh pr edit "$PR" --add-label "type: $type"
+          if [ "$breaking" = yes ]; then
+            gh label create "breaking change" --color d93f0b --force >/dev/null
+            gh pr edit "$PR" --add-label "breaking change"
+          fi
+
+  changeset:
+    name: Changeset
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+    steps:
+      # User-facing changes need a .changeset/*.md file (`npx changeset`): it becomes the CHANGELOG entry
+      # and sets the version bump. Read through the API, so no PR code is checked out.
+      - name: Require a changeset for feat, fix, perf and revert
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          TITLE: ${{ github.event.pull_request.title }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          SKIP: ${{ contains(github.event.pull_request.labels.*.name, 'skip changeset') }}
+        run: |
+          case "$HEAD_REF" in changeset-release/*) echo "Version Packages PR"; exit 0 ;; esac
+          [ "$SKIP" = true ] && { echo "Skipped by the 'skip changeset' label"; exit 0; }
+          type=$(printf '%s' "$TITLE" | sed -nE 's/^([a-z]+)(\([^)]*\))?(!)?:.*/\1/p')
+          case "$type" in
+            feat | fix | perf | revert) ;;
+            *) echo "No changeset needed for '${type:-untyped}' PRs"; exit 0 ;;
+          esac
+          files=$(gh pr view "$PR" --json files --jq '.files[].path')
+          if printf '%s\n' "$files" | grep -E '^\.changeset/[^/]+\.md$' | grep -qvxF '.changeset/README.md'; then
+            echo "Changeset found"
+          else
+            echo "::error::Add a changeset: run \`npx changeset\`, describe the change for users and commit the .changeset/*.md file. Add the 'skip changeset' label if this PR needs no release note."
+            exit 1
+          fi

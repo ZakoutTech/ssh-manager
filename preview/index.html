@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SSH Config Manager — preview</title>
+    <link rel="stylesheet" href="theme.css" />
+    <link rel="stylesheet" href="dist/main.css" />
+  </head>
+  <body class="vscode-dark">
+    <header class="preview-bar">
+      <strong>SSH Config Manager preview</strong>
+      <button id="undo" type="button" disabled>Undo</button>
+      <button id="redo" type="button" disabled>Redo</button>
+      <button id="reset" type="button">Reset sample</button>
+      <button id="theme" type="button">Light theme</button>
+      <span class="hint"
+        >Edits here run the real edit pipeline; the right pane is the resulting config file (also editable). Agent and ssh-keygen are
+        simulated.</span
+      >
+    </header>
+    <main class="preview-layout">
+      <section class="preview-gui"><div id="app"></div></section>
+      <section class="preview-source">
+        <label for="source">~/.ssh/config</label>
+        <textarea id="source" spellcheck="false"></textarea>
+      </section>
+    </main>
+    <script src="dist/main.js"></script>
+    <script>
+      // Live reload when `npm run preview` rebuilds.
+      new EventSource('/reload').addEventListener('change', () => location.reload());
+    </script>
+  </body>
+</html>
