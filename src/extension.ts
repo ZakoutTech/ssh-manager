@@ -189,6 +189,12 @@ export function activate(context: vscode.ExtensionContext): SshConfigManagerApi 
       await applyFromTree(uri, { type: 'sortAll' });
     }
   });
+  command('disabledToBottom', async () => {
+    const uri = await targetConfig();
+    if (uri) {
+      await applyFromTree(uri, { type: 'disabledToBottom' });
+    }
+  });
   command('refresh', async () => {
     tree.refresh();
     await agent.refresh();

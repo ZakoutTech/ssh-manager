@@ -319,19 +319,39 @@ function isGeneric(host: SshHost): boolean {
   return host.kind === 'match' || /[*?!]/.test(host.patterns);
 }
 
-/** Sort a group's hosts by name; wildcard and Match blocks stay last, in their order. Group order never changes. */
-function sortHosts(group: SshGroup): void {
+const byName = (a: SshHost, b: SshHost): number =>
+  hostSortKey(a).localeCompare(hostSortKey(b), 'en', { sensitivity: 'base', numeric: true });
+
+/** Put a group's hosts in the given order (its leading comments stay first); untouched when nothing moves. */
+function reorderHosts(group: SshGroup, order: (hosts: SshHost[]) => SshHost[]): void {
   const lead = group.items.filter((item) => item.type !== 'host');
   const hosts = group.items.filter((item): item is SshHost => item.type === 'host');
-  const specific = hosts.filter((h) => !isGeneric(h));
-  const generic = hosts.filter(isGeneric);
-  specific.sort((a, b) => hostSortKey(a).localeCompare(hostSortKey(b), 'en', { sensitivity: 'base', numeric: true }));
-  const sorted = [...specific, ...generic];
-  if (sorted.every((h, i) => h === hosts[i])) {
+  const ordered = order(hosts);
+  if (ordered.every((h, i) => h === hosts[i])) {
     return;
   }
-  sorted.forEach(separate);
-  group.items = [...lead, ...sorted];
+  ordered.forEach(separate);
+  group.items = [...lead, ...ordered];
+}
+
+/**
+ * Sort a group's hosts by name. Wildcard and Match blocks follow in their order (defaults belong
+ * after specific hosts), and commented-out hosts come last, also by name. Group order never changes.
+ */
+function sortHosts(group: SshGroup): void {
+  reorderHosts(group, (hosts) => {
+    const active = hosts.filter((h) => !h.disabled);
+    return [
+      ...active.filter((h) => !isGeneric(h)).sort(byName),
+      ...active.filter(isGeneric),
+      ...hosts.filter((h) => h.disabled).sort(byName),
+    ];
+  });
+}
+
+/** Move commented-out hosts to the end of their group, keeping every other order. ssh ignores them, so nothing changes for it. */
+function disabledToBottom(group: SshGroup): void {
+  reorderHosts(group, (hosts) => [...hosts.filter((h) => !h.disabled), ...hosts.filter((h) => h.disabled)]);
 }
 
 export function applyIntent(doc: SshConfigDocument, intent: EditIntent): SshConfigDocument {
@@ -455,6 +475,9 @@ export function applyIntent(doc: SshConfigDocument, intent: EditIntent): SshConf
       break;
     case 'sortAll':
       doc.groups.forEach(sortHosts);
+      break;
+    case 'disabledToBottom':
+      doc.groups.forEach(disabledToBottom);
       break;
   }
   trimTail(doc, tailBefore);

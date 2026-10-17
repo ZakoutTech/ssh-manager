@@ -238,3 +238,25 @@ describe('sortAll', () => {
     expect(run(BASE, { type: 'sortAll' })).toBe(BASE);
   });
 });
+
+describe('commented-out hosts at the bottom', () => {
+  const text =
+    '# Host old\n#   User o\n\nHost b\n  User b\n\n# Host aged\n#   User x\n\nHost a\n  User a\n\n# === Work ===\nHost w\n  User w\n';
+
+  it('moves commented-out hosts to the end of their group, keeping every other order', () => {
+    expect(run(text, { type: 'disabledToBottom' })).toBe(
+      'Host b\n  User b\n\nHost a\n  User a\n\n# Host old\n#   User o\n\n# Host aged\n#   User x\n\n# === Work ===\nHost w\n  User w\n',
+    );
+  });
+
+  it('sorts them last, by name', () => {
+    expect(run(text, { type: 'sortGroup', group: 0 })).toBe(
+      'Host a\n  User a\n\nHost b\n  User b\n\n# Host aged\n#   User x\n\n# Host old\n#   User o\n\n# === Work ===\nHost w\n  User w\n',
+    );
+  });
+
+  it('leaves a file whose commented-out hosts are already last unchanged', () => {
+    const tidy = 'Host a\n  User a\n\n# Host old\n#   User o\n';
+    expect(run(tidy, { type: 'disabledToBottom' })).toBe(tidy);
+  });
+});

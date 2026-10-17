@@ -44,7 +44,9 @@ export type EditIntent =
   | { type: 'deleteGroup'; group: number; deleteHosts: boolean }
   | { type: 'moveGroup'; group: number; toIndex: number }
   | { type: 'sortGroup'; group: number }
-  | { type: 'sortAll' };
+  | { type: 'sortAll' }
+  /** Move commented-out hosts to the bottom of their group. */
+  | { type: 'disabledToBottom' };
 
 export interface ViewOption {
   keyword: string;

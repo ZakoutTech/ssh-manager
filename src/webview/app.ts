@@ -742,7 +742,7 @@ export function createApp(root: HTMLElement, post: (message: FromWebviewMessage)
         : null,
       on(
         button('Sort A→Z', 'sort-group', `sort-group-${g}`, {
-          title: `Sort the hosts of ${label} by name (wildcard and Match blocks stay last)`,
+          title: `Sort the hosts of ${label} by name (wildcard and Match blocks, then commented-out hosts, go last)`,
           disabled: count < 2,
         }),
         'click',
@@ -974,6 +974,11 @@ export function createApp(root: HTMLElement, post: (message: FromWebviewMessage)
     );
   }
 
+  /** Some group has a commented-out host above an active one. */
+  function commentedAboveActive(): boolean {
+    return !!state.doc?.groups.some((g) => g.hosts.some((host, i) => host.disabled && g.hosts.slice(i + 1).some((next) => !next.disabled)));
+  }
+
   function render(focusId?: string): void {
     rendering = true;
     const active = document.activeElement as HTMLElement | null;
@@ -1032,11 +1037,20 @@ export function createApp(root: HTMLElement, post: (message: FromWebviewMessage)
       ),
       on(
         button('Sort all A→Z', 'sort-all', 'sort-all', {
-          title: 'Sort the hosts of every group by name (wildcard and Match blocks stay last; groups keep their order)',
+          title:
+            'Sort the hosts of every group by name (wildcard and Match blocks, then commented-out hosts, go last; groups keep their order)',
           disabled: (state.doc?.groups.reduce((n, g) => n + g.hosts.length, 0) ?? 0) < 2,
         }),
         'click',
         () => dispatch({ type: 'sortAll' }),
+      ),
+      on(
+        button('Commented to bottom', 'disabled-to-bottom', 'disabled-to-bottom', {
+          title: 'Move commented-out hosts to the bottom of their group (ssh ignores them, so nothing changes for it)',
+          disabled: !commentedAboveActive(),
+        }),
+        'click',
+        () => dispatch({ type: 'disabledToBottom' }),
       ),
       filter,
       h('label', { class: 'show-preview', title: 'Show the config text to the right' }, showPreview, 'Preview'),
