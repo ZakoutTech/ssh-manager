@@ -100,6 +100,14 @@ suite('SSH Config Manager', () => {
     assert.ok(problems.some((d) => d.code === 'catch-all-first' && d.range.start.line === 0));
   });
 
+  test('sorts every group with the Sort All command, keeping Host * last', async () => {
+    await vscode.commands.executeCommand('sshConfigManager.sortAll');
+    const document = await vscode.workspace.openTextDocument(vscode.Uri.file(configPath));
+    assert.ok(document.getText().startsWith('Host alpha\n'), document.getText());
+    assert.ok(document.getText().includes('Host *\n    ServerAliveInterval 60\n\n# === Work ==='), document.getText());
+    assert.strictEqual(document.isDirty, false, 'saved, like other edits from the Hosts view');
+  });
+
   test('checks the ssh-agent', async () => {
     const status = await api.agent.refresh();
     assert.notStrictEqual(status.state, 'checking');

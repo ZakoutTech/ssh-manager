@@ -43,7 +43,8 @@ export type EditIntent =
   | { type: 'updateGroupComment'; group: number; comment: string }
   | { type: 'deleteGroup'; group: number; deleteHosts: boolean }
   | { type: 'moveGroup'; group: number; toIndex: number }
-  | { type: 'sortGroup'; group: number };
+  | { type: 'sortGroup'; group: number }
+  | { type: 'sortAll' };
 
 export interface ViewOption {
   keyword: string;
@@ -190,6 +191,10 @@ export type FromWebviewMessage =
   | { type: 'browse'; field: 'identityFile' | 'keygenPath' }
   | { type: 'keygen'; request: KeygenRequest }
   | { type: 'copyText'; text: string }
-  | { type: 'sshCopyId'; alias: string; publicKeyPath: string }
+  /**
+   * Install a public key on the host (ssh-copy-id). `keyPath` (a private key, `.pub` is added) is used as is;
+   * otherwise the user picks one, with `suggested` (the host's IdentityFile) first.
+   */
+  | { type: 'copyKeyToHost'; alias: string; keyPath?: string; suggested?: string }
   /** Run one of the extension's commands (the agent view's "Generate key…" and "Open config"). */
   | { type: 'command'; command: 'generateKey' | 'openEditor' };

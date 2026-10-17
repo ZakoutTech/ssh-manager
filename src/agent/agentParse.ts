@@ -126,3 +126,16 @@ export function keyPathError(path: string): string | undefined {
   }
   return undefined;
 }
+
+/**
+ * Windows has no ssh-copy-id: the PowerShell line that does the same (append the public key to
+ * the server's authorized_keys, creating ~/.ssh with safe permissions). Undefined for an alias
+ * that is not safe to put on a command line.
+ */
+export function powershellCopyIdCommand(publicKeyPath: string, alias: string): string | undefined {
+  if (!/^[A-Za-z0-9._@:-]+$/.test(alias)) {
+    return undefined;
+  }
+  const path = `'${publicKeyPath.replace(/'/g, "''")}'`;
+  return `Get-Content -Raw ${path} | ssh ${alias} "umask 077; mkdir -p .ssh && cat >> .ssh/authorized_keys"`;
+}

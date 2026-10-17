@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { addKeyArgs, evalCommand, keygenArgs, keyPathError, parseAgentOutput, parseKeyList, shellFlavor } from '../../src/agent/agentParse';
+import {
+  addKeyArgs,
+  evalCommand,
+  keygenArgs,
+  keyPathError,
+  parseAgentOutput,
+  parseKeyList,
+  powershellCopyIdCommand,
+  shellFlavor,
+} from '../../src/agent/agentParse';
 
 describe('parseAgentOutput', () => {
   it('reads sh-style output', () => {
@@ -72,5 +81,17 @@ describe('arguments', () => {
     expect(keyPathError('')).toBeDefined();
     expect(keyPathError('id.pub')).toBeDefined();
     expect(keyPathError('~/.ssh/id_ed25519_work')).toBeUndefined();
+  });
+});
+
+describe('powershellCopyIdCommand', () => {
+  it('pipes the public key into authorized_keys over ssh', () => {
+    expect(powershellCopyIdCommand("C:\\Users\\o'neil\\.ssh\\id_ed25519.pub", 'web-1')).toBe(
+      `Get-Content -Raw 'C:\\Users\\o''neil\\.ssh\\id_ed25519.pub' | ssh web-1 "umask 077; mkdir -p .ssh && cat >> .ssh/authorized_keys"`,
+    );
+  });
+
+  it('refuses aliases that are unsafe on a command line', () => {
+    expect(powershellCopyIdCommand('C:\\k.pub', 'a;rm')).toBeUndefined();
   });
 });

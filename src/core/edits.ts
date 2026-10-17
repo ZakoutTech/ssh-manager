@@ -319,6 +319,21 @@ function isGeneric(host: SshHost): boolean {
   return host.kind === 'match' || /[*?!]/.test(host.patterns);
 }
 
+/** Sort a group's hosts by name; wildcard and Match blocks stay last, in their order. Group order never changes. */
+function sortHosts(group: SshGroup): void {
+  const lead = group.items.filter((item) => item.type !== 'host');
+  const hosts = group.items.filter((item): item is SshHost => item.type === 'host');
+  const specific = hosts.filter((h) => !isGeneric(h));
+  const generic = hosts.filter(isGeneric);
+  specific.sort((a, b) => hostSortKey(a).localeCompare(hostSortKey(b), 'en', { sensitivity: 'base', numeric: true }));
+  const sorted = [...specific, ...generic];
+  if (sorted.every((h, i) => h === hosts[i])) {
+    return;
+  }
+  sorted.forEach(separate);
+  group.items = [...lead, ...sorted];
+}
+
 export function applyIntent(doc: SshConfigDocument, intent: EditIntent): SshConfigDocument {
   const tailBefore = tailItems(doc);
   switch (intent.type) {
@@ -435,21 +450,12 @@ export function applyIntent(doc: SshConfigDocument, intent: EditIntent): SshConf
       }
       break;
     }
-    case 'sortGroup': {
-      const group = getGroup(doc, intent.group);
-      const lead = group.items.filter((item) => item.type !== 'host');
-      const hosts = group.items.filter((item): item is SshHost => item.type === 'host');
-      const specific = hosts.filter((h) => !isGeneric(h));
-      const generic = hosts.filter(isGeneric);
-      specific.sort((a, b) => hostSortKey(a).localeCompare(hostSortKey(b), 'en', { sensitivity: 'base', numeric: true }));
-      const sorted = [...specific, ...generic];
-      if (sorted.every((h, i) => h === hosts[i])) {
-        break;
-      }
-      sorted.forEach(separate);
-      group.items = [...lead, ...sorted];
+    case 'sortGroup':
+      sortHosts(getGroup(doc, intent.group));
       break;
-    }
+    case 'sortAll':
+      doc.groups.forEach(sortHosts);
+      break;
   }
   trimTail(doc, tailBefore);
   return doc;

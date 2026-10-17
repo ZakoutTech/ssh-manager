@@ -209,6 +209,18 @@
         "category": "SSH Config Manager"
       },
       {
+        "command": "sshConfigManager.copyKeyToHost",
+        "title": "Install Public Key on Host (ssh-copy-id)…",
+        "category": "SSH Config Manager",
+        "icon": "$(key)"
+      },
+      {
+        "command": "sshConfigManager.sortAll",
+        "title": "Sort All Hosts A→Z",
+        "category": "SSH Config Manager",
+        "icon": "$(sort-precedence)"
+      },
+      {
         "command": "sshConfigManager.refresh",
         "title": "Refresh",
         "category": "SSH Config Manager",
@@ -308,6 +320,11 @@
           "group": "navigation@2"
         },
         {
+          "command": "sshConfigManager.sortAll",
+          "when": "view == sshConfigManager.hosts",
+          "group": "1_sort"
+        },
+        {
           "command": "sshConfigManager.restoreBackup",
           "when": "view == sshConfigManager.hosts",
           "group": "2_backup"
@@ -353,6 +370,11 @@
           "command": "sshConfigManager.copyCommand",
           "when": "view == sshConfigManager.hosts && viewItem == sshConfigManager.host",
           "group": "1_connect@3"
+        },
+        {
+          "command": "sshConfigManager.copyKeyToHost",
+          "when": "view == sshConfigManager.hosts && viewItem == sshConfigManager.host",
+          "group": "1_connect@4"
         },
         {
           "command": "sshConfigManager.editHost",

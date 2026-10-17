@@ -114,7 +114,7 @@ export function createApp(root: HTMLElement, post: (message: FromWebviewMessage)
       generate: (request) => post({ type: 'keygen', request }),
       browse: () => post({ type: 'browse', field: 'keygenPath' }),
       copy: (text) => post({ type: 'copyText', text }),
-      copyId: (alias, path) => post({ type: 'sshCopyId', alias, publicKeyPath: path }),
+      copyId: (alias, path) => post({ type: 'copyKeyToHost', alias, keyPath: path }),
       useKey,
       onClose: () => {
         keygenDialog = undefined;
@@ -578,6 +578,15 @@ export function createApp(root: HTMLElement, post: (message: FromWebviewMessage)
             post({ type: 'connect', alias, how: 'copy' }),
           )
         : null,
+      canConnect
+        ? on(
+            button('Install key', 'copy-key-to-host', `copy-key-${id}`, {
+              title: `Install a public key on ${alias} (ssh-copy-id), so ssh logs in with the key instead of a password`,
+            }),
+            'click',
+            () => post({ type: 'copyKeyToHost', alias, suggested: summary.identityFile }),
+          )
+        : null,
       on(button('Edit', 'edit-host', `edit-${id}`, { title: 'Edit in a dialog' }), 'click', () => openHost('edit', ref)),
       host.kind === 'host'
         ? on(button('Duplicate', 'duplicate-host', `duplicate-${id}`, { title: 'Add a copy of this host' }), 'click', () =>
@@ -1020,6 +1029,14 @@ export function createApp(root: HTMLElement, post: (message: FromWebviewMessage)
       ),
       on(button('+ Group', 'add-group', 'add-group', { title: 'Add a group of hosts (# === Name === in the file)' }), 'click', () =>
         startEditing({ kind: 'newGroup' }, {}),
+      ),
+      on(
+        button('Sort all A→Z', 'sort-all', 'sort-all', {
+          title: 'Sort the hosts of every group by name (wildcard and Match blocks stay last; groups keep their order)',
+          disabled: (state.doc?.groups.reduce((n, g) => n + g.hosts.length, 0) ?? 0) < 2,
+        }),
+        'click',
+        () => dispatch({ type: 'sortAll' }),
       ),
       filter,
       h('label', { class: 'show-preview', title: 'Show the config text to the right' }, showPreview, 'Preview'),

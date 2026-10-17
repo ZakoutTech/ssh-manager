@@ -224,3 +224,17 @@ describe('groups', () => {
     expect(() => run(BASE, { type: 'renameGroup', group: 0, name: 'x' })).toThrow(EditError);
   });
 });
+
+describe('sortAll', () => {
+  it('sorts every group, keeping groups in place and wildcard blocks last', () => {
+    const text =
+      'Host zed\n  User z\n\nHost alpha\n  User a\n\n# === Work ===\nHost web-10\n  User w\n\nHost *.internal\n  User i\n\nHost web-2\n  User w\n';
+    expect(run(text, { type: 'sortAll' })).toBe(
+      'Host alpha\n  User a\n\nHost zed\n  User z\n\n# === Work ===\nHost web-2\n  User w\n\nHost web-10\n  User w\n\nHost *.internal\n  User i\n',
+    );
+  });
+
+  it('leaves a sorted file unchanged', () => {
+    expect(run(BASE, { type: 'sortAll' })).toBe(BASE);
+  });
+});

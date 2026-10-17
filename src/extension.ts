@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { AgentService } from './agent/agentService';
 import { Askpass } from './agent/askpass';
-import { connectInTerminal, copyCommand, openRemote } from './connect/connect';
+import { connectInTerminal, copyCommand, copyKeyToHost, openRemote } from './connect/connect';
 import { EditError } from './core/edits';
 import type { EditIntent } from './shared/protocol';
 import { patternsError } from './shared/validation';
@@ -175,6 +175,18 @@ export function activate(context: vscode.ExtensionContext): SshConfigManagerApi 
     const alias = await pickAlias(tree, arg, 'Copy SSH Command');
     if (alias) {
       await copyCommand(alias);
+    }
+  });
+  command('copyKeyToHost', async (arg) => {
+    const alias = await pickAlias(tree, arg, 'Install Public Key on Host');
+    if (alias) {
+      await copyKeyToHost(alias, { suggested: isHostNode(arg) ? arg.host.summary.identityFile : undefined });
+    }
+  });
+  command('sortAll', async () => {
+    const uri = await targetConfig();
+    if (uri) {
+      await applyFromTree(uri, { type: 'sortAll' });
     }
   });
   command('refresh', async () => {

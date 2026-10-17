@@ -1,14 +1,12 @@
-import { existsSync } from 'node:fs';
 import * as vscode from 'vscode';
 import type { AgentService } from '../agent/agentService';
 import type { Askpass } from '../agent/askpass';
-import { generateKey, KeygenError, resolveKeyPath } from '../agent/keygen';
-import { connectInTerminal, copyCommand, openRemote } from '../connect/connect';
+import { generateKey, KeygenError } from '../agent/keygen';
+import { connectInTerminal, copyCommand, copyKeyToHost, openRemote } from '../connect/connect';
 import { EditError } from '../core/edits';
 import { parse } from '../core/parse';
 import { toViewDocument } from '../core/viewModel';
 import type { FromWebviewMessage, ToWebviewMessage } from '../shared/protocol';
-import { isConcreteAlias } from '../shared/validation';
 import { applyIntentToDocument } from './applyEdit';
 import { checkPermissions, fileChoices, sshDir, tildify } from './configLocator';
 import { identityExists } from './diagnostics';
@@ -240,24 +238,9 @@ export class SshConfigEditorProvider implements vscode.CustomTextEditorProvider 
           await vscode.env.clipboard.writeText(message.text);
           vscode.window.setStatusBarMessage('Copied to the clipboard', 3000);
           return;
-        case 'sshCopyId': {
-          const pub = `${resolveKeyPath(message.publicKeyPath)}.pub`;
-          if (!isConcreteAlias(message.alias) || !existsSync(pub)) {
-            post({ type: 'error', message: 'Choose a host alias and an existing key first.' });
-            return;
-          }
-          if (process.platform === 'win32') {
-            await vscode.env.clipboard.writeText((await vscode.workspace.fs.readFile(vscode.Uri.file(pub))).toString().trim());
-            void vscode.window.showInformationMessage(
-              `ssh-copy-id is not available on Windows. The public key was copied: append it to ~/.ssh/authorized_keys on ${message.alias}.`,
-            );
-            return;
-          }
-          vscode.window
-            .createTerminal({ name: `ssh-copy-id ${message.alias}`, shellPath: 'ssh-copy-id', shellArgs: ['-i', pub, message.alias] })
-            .show();
+        case 'copyKeyToHost':
+          await copyKeyToHost(message.alias, { keyPath: message.keyPath, suggested: message.suggested });
           return;
-        }
         case 'command':
           runWebviewCommand(message.command);
           return;
